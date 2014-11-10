@@ -2,6 +2,7 @@
 __TODO__
 * Implement stereo "consistency checking"
 * Finish stereo Growing Correspondence Seeds (GCS)
+* Move AutoKMeans and DetectCircles here
 
 ## Build depth map from stereo images:
 * cd ./Stereo/
