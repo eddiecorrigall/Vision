@@ -105,5 +105,5 @@ if __name__ == "__main__":
 	D = block_matching(L, R)
 	D = image.normalize(D)
 
-	image.write("depth.png", D)
-	#image.show(D)
+	#image.write("depth.png", D)
+	image.show(D)
