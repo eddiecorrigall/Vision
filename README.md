@@ -1,4 +1,7 @@
 # Vision
+TODO:
+* Implement stereo "consistency checking"
+* Finish stereo Growing Correspondence Seeds (GCS)
 
 ## Build depth map from stereo images:
 * cd ./Stereo/
