@@ -1,5 +1,5 @@
 # Vision
-TODO:
+__TODO__
 * Implement stereo "consistency checking"
 * Finish stereo Growing Correspondence Seeds (GCS)
 
