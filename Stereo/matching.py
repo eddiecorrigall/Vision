@@ -1,8 +1,8 @@
 import sys
+import numpy
 
 sys.path.append("..")
 
-import numpy
 import image
 import costs
 
