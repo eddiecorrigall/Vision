@@ -6,10 +6,7 @@ import matplotlib.image
 # Note: image coordinates are (y, x) in (height, width)
 
 def read(path):
-	return numpy.array(
-		matplotlib.image.imread(path),
-		dtype = numpy.float32
-	)
+	return numpy.array(matplotlib.image.imread(path), dtype = numpy.float32)
 
 def write(path, image):
 
@@ -25,7 +22,6 @@ def show(image):
 	dimensions = len(image.shape)
 
 	if (dimensions == 2):
-		image = normalize(image)
 		pyplot.imshow(image, cmap = pyplot.get_cmap('gray'))
 	else:
 		pyplot.imshow(image)
@@ -53,3 +49,13 @@ def greyscale(image):
 		image = numpy.dot(image[..., xrange(3)], [0.299, 0.587, 0.144])
 
 	return normalize(image)
+
+def neighbours(image, yy, xx, N):
+
+	# Given an image
+	# Return an NxN array whose "center" element is arr[y,x]
+
+	image = numpy.roll(image, shift = 1-yy, axis = 0)
+	image = numpy.roll(image, shift = 1-xx, axis = 1)
+
+	return image[:N, :N]
