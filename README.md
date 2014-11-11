@@ -1,8 +1,10 @@
 # Vision
+
 __Features__
-* block matching for baseline stero images
-* block maching censoring to remove low texture areas in scanline
-* consistency checking of left, right disparity
+* Block matching for baseline stero images
+* Block maching censoring to remove low texture areas in scanline
+* Consistency checking of left, right disparity
+
 __TODO__
 * Finish stereo Growing Correspondence Seeds (GCS)
 * Move AutoKMeans here
