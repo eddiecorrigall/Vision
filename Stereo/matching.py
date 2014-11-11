@@ -18,8 +18,8 @@ def block_matching(L, R):
 
 	cost_function = costs.ssd
 	disparity = 8
-	window = 2
-	sigma = 2 # Try: { 8, 16, 32, 48 }
+	window = 3
+	sigma = 2 # Sigma is the censor variance. Try: { 2, 8, 16, 32, 48 }
 
 	# ...
 
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 		L_disparity_map = block_matching(L, R)
 		pickle.dump(L_disparity_map, open(L_disparity_map_path, "wb"))
 
-	image.show(L_disparity_map)
+	image.show(L_disparity_map, "Left Disparity Map")
 
 	print("Compute disparity map with RIGHT image as reference")
 
@@ -145,9 +145,11 @@ if __name__ == "__main__":
 		R_disparity_map = block_matching(R, L)
 		pickle.dump(R_disparity_map, open(R_disparity_map_path, "wb"))
 
-	image.show(R_disparity_map)
+	image.show(R_disparity_map, "Right Disparity Map")
 
 	print("Remove any inconsistency between both images")
 	
-	disparity_map = remove_inconsistency(L_disparity_map, R_disparity_map, empty_value = -8)
-	image.show(disparity_map)
+	depth_map = remove_inconsistency(L_disparity_map, R_disparity_map, empty_value = 8)
+	depth_map = 0-depth_map
+
+	image.show(depth_map, "Depth Map")

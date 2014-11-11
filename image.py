@@ -17,9 +17,12 @@ def write(path, image):
 	else:
 		matplotlib.image.imsave(path, image)
 
-def show(image):
+def show(image, title = None):
 	
 	dimensions = len(image.shape)
+
+	if title is not None:
+		pyplot.title(title)
 
 	if (dimensions == 2):
 		pyplot.imshow(image, cmap = pyplot.get_cmap('gray'))
