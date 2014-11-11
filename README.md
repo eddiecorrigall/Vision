@@ -14,6 +14,8 @@ __TODO__
 * cd ./Stereo/
 * python matching.py pm_L.py pm_R.py
 
+In the depth map, lighter shades are closer, darker shades are farther, black can mean no information.
+
 __Stereo Example__
 * [PM Left](Stereo/pm_L.tif?raw=True)
 * [PM Right](Stereo/pm_R.tif?raw=True)
