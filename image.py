@@ -49,16 +49,24 @@ def greyscale(image):
 	dimensions = len(image.shape)
 
 	if (dimensions != 2):
-		image = numpy.dot(image[..., xrange(3)], [0.299, 0.587, 0.144])
+		image = numpy.dot(image[..., range(3)], [0.299, 0.587, 0.144])
 
 	return normalize(image)
 
-def neighbours(image, yy, xx, N):
+def neighbours(image, yy, xx, size, roll = False):
 
-	# Given an image
-	# Return an NxN array whose "center" element is arr[y,x]
+	if (roll):
 
-	image = numpy.roll(image, shift = 1-yy, axis = 0)
-	image = numpy.roll(image, shift = 1-xx, axis = 1)
+		# Given an image
+		# Return an NxN array whose "center" element is arr[y,x]
 
-	return image[:N, :N]
+		image = numpy.roll(image, shift = 1-yy, axis = 0)
+		image = numpy.roll(image, shift = 1-xx, axis = 1)
+
+		span = 1 + 2*size
+
+		return image[:span, :span]
+
+	else:
+		
+		return numpy.transpose(image[range(yy-size, yy+size+1)])[range(xx-size, xx+size+1)]

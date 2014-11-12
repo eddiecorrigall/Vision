@@ -9,60 +9,76 @@ import costs
 # Baseline matching...
 # Horizonal scanline is assumed to be align in both left and right images
 
-def block_matching(L, R):
+def block_matching(
+	L_image,
+	R_image,
+	disparity = 8,
+	window = 3,
+	roll = True,
+	cost_default = numpy.inf,
+	cost_function = costs.ssd,
+	censor = True, 
+	censor_threshold = 2.0):
 
 	# Brute-force matching algorithm!
 
-	L = numpy.array(255*image.greyscale(L), dtype = numpy.uint8)
-	R = numpy.array(255*image.greyscale(R), dtype = numpy.uint8)
-
-	cost_function = costs.ssd
-	disparity = 8
-	window = 3
-	sigma = 2 # Sigma is the censor variance. Try: { 2, 8, 16, 32, 48 }
+	L_image = numpy.array(255*image.greyscale(L_image), dtype = numpy.uint8)
+	R_image = numpy.array(255*image.greyscale(R_image), dtype = numpy.uint8)
 
 	# ...
 
-	shape = (height, width) = L.shape
+	shape = (height, width) = L_image.shape
 
-	window_span = 1 + 2*window
-	disparity_span = 1 + 2*disparity
-	disparity_range = numpy.array(range(disparity_span)) - disparity
-	disparity_map = (0-disparity)*numpy.ones(shape)
+	window_span		= 1 + 2*window
+	disparity_span	= 1 + 2*disparity
+	disparity_range	= (0-disparity) + numpy.array(range(disparity_span))
+	disparity_map	= (0-disparity) * numpy.ones(shape)
 
-	for yy in xrange(height):
+	if roll:
+		yy_range = xrange(height)
+		xx_range = xrange(width)
+	else:
+		yy_range = xrange(window, height-window)
+		xx_range = xrange(window+disparity, width-window-disparity)
+
+	for yy in yy_range:
 		
 		percent = numpy.floor(100*(float(1+yy)/height))
 		sys.stdout.write("\rProgress: %d%%" % percent)
 		sys.stdout.flush()
 
-		for xx in xrange(width):
+		for xx in xx_range:
 
-			L_window = image.neighbours(L, yy, xx, N = window_span)
+			L_window = image.neighbours(L_image, yy, xx, size = window, roll = roll)
 
-			# Censorship: Remove areas of low texture...
+			if (censor): # Censorship: Remove areas of low texture...
 
-			# IMPORTANT:
-			# Rows (xx) is axis=1, ie. numpy.sum(W, axis=1) <=> W[:][0]+W[:][1]+W[:][2]
-			# Columns (yy) is axis=0, ie. numpy.sum(W, axis=0) <=> W[0][:]+W[1][:]+W[2][:]
-			
-			scanline_mean = numpy.mean(L_window, axis = 0) # Horizontal scanline mean
-			scanline_variance = numpy.mean((L_window - scanline_mean)**2) # Horizontal scanline mean
+				# Censor variance along the horizontal scanline, try: { 2, 8, 16, 32, 48 }
 
-			if (scanline_variance < sigma): continue # Ensure exture quality
+				# IMPORTANT:
+				# Rows (xx) is axis=1, ie. numpy.sum(W, axis=1) <=> W[:][0]+W[:][1]+W[:][2]
+				# Columns (yy) is axis=0, ie. numpy.sum(W, axis=0) <=> W[0][:]+W[1][:]+W[2][:]
+				
+				scanline_mean = numpy.mean(L_window, axis = 0) # Horizontal scanline mean
+				scanline_variance = numpy.mean((L_window - scanline_mean)**2) # Horizontal scanline mean
+
+				if (scanline_variance < censor_threshold):
+					continue # Ensure exture quality
 
 			# Find the best disparity match...
 
-			cc_best = numpy.inf
+			''' #This one-liner doesn't seem to speed things up...
+			disparity_map[yy][xx] = (0-disparity) + numpy.array([
+				cost_function(L_window, image.neighbours(R, yy, xx+dd, size = window, roll = roll))
+				for dd in disparity_range
+			]).argmin()
+			'''
+
+			cc_best = cost_default
 			
 			for dd in disparity_range:
 
-				zz = xx+dd
-
-				if (zz < 0): continue
-				if ((zz < width) == False): break
-
-				R_window = image.neighbours(R, yy, zz, N = window_span)
+				R_window = image.neighbours(R_image, yy, xx+dd, size = window, roll = roll)
 
 				cc = cost_function(L_window, R_window)
 
@@ -72,13 +88,11 @@ def block_matching(L, R):
 	
 	sys.stdout.write("\n")
 
-	##disparity_map = (0 - disparity_map) # Invert
-
 	return disparity_map
 
 def remove_inconsistency(L_disparity_map, R_disparity_map, empty_value):
 
-	(height, width) = shape = L.shape
+	(height, width) = shape = L_disparity_map.shape
 
 	disparity_map = empty_value*numpy.ones(shape)
 
@@ -124,15 +138,15 @@ if __name__ == "__main__":
 	L_disparity_map_path = L_path + ".map"
 	R_disparity_map_path = R_path + ".map"
 
-	L = image.greyscale(image.read(L_path))
-	R = image.greyscale(image.read(R_path))
+	L_image = image.greyscale(image.read(L_path))
+	R_image = image.greyscale(image.read(R_path))
 
 	print("Compute disparity map with LEFT image as reference")
 	
 	if (os.path.exists(L_disparity_map_path)):
 		L_disparity_map = pickle.load(open(L_disparity_map_path, "rb"))
 	else:
-		L_disparity_map = block_matching(L, R)
+		L_disparity_map = block_matching(L_image, R_image)
 		pickle.dump(L_disparity_map, open(L_disparity_map_path, "wb"))
 
 	image.show(L_disparity_map, "Left Disparity Map")
@@ -142,7 +156,7 @@ if __name__ == "__main__":
 	if (os.path.exists(R_disparity_map_path)):
 		R_disparity_map = pickle.load(open(R_disparity_map_path, "rb"))
 	else:
-		R_disparity_map = block_matching(R, L)
+		R_disparity_map = block_matching(R_image, L_image)
 		pickle.dump(R_disparity_map, open(R_disparity_map_path, "wb"))
 
 	image.show(R_disparity_map, "Right Disparity Map")
