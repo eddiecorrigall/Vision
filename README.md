@@ -6,13 +6,15 @@ __Features__
 * Consistency checking of left, right disparity
 
 __TODO__
-* Finish stereo Growing Correspondence Seeds (GCS)
+* Finish Growing Correspondence Seeds (GCS)
 * Move AutoKMeans here
 * Move DetectCircles here
 
 ## Build depth map from stereo images:
 * cd ./Stereo/
-* python matching.py pm_L.py pm_R.py
+* python matching.py pm_L.tif pm_R.tif
+
+In the depth map, lighter shades are closer, darker shades are farther, black can mean no information.
 
 __Stereo Example__
 * [PM Left](Stereo/pm_L.tif?raw=True)
