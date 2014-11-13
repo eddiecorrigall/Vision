@@ -3,6 +3,7 @@
 __Features__
 * Horizontal Baseline Block Matching
 	* Censoring (filter areas of low texture)
+	* Progress animation
 * Consistency checking
 
 ## Examples
