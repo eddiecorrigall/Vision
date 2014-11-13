@@ -9,8 +9,9 @@ __Features__
 
 __Build Depth Map from Stereo Images__
 
-* cd ./Stereo/
 * python matching.py Examples/pm_L.tif Exmaples/pm_R.tif
+* python matching.py Examples/synth_L.tif Exmaples/synth_R.tif
+* python matching.py Examples/star_L.jpg Exmaples/star_R.jpg
 
 In the depth map, lighter shades are closer, darker shades are farther, black can mean no information.
 
