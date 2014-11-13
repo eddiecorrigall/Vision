@@ -17,7 +17,7 @@ def write(path, image):
 	else:
 		matplotlib.image.imsave(path, image)
 
-def show(image, title = None):
+def show(image, title = None, block = True):
 	
 	dimensions = len(image.shape)
 
@@ -29,7 +29,7 @@ def show(image, title = None):
 	else:
 		pyplot.imshow(image)
 
-	pyplot.show()
+	pyplot.show(block = block)
 
 def normalize(image):
 
@@ -55,7 +55,7 @@ def greyscale(image):
 
 def neighbours(image, yy, xx, size, roll = False):
 
-	if (roll):
+	if roll:
 
 		# Given an image
 		# Return an NxN array whose "center" element is arr[y,x]

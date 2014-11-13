@@ -3,6 +3,8 @@ import sys
 sys.path.append("..")
 
 import numpy
+import matplotlib.pyplot as pyplot
+
 import image
 import costs
 
@@ -18,7 +20,8 @@ def block_matching(
 	cost_default = numpy.inf,
 	cost_function = costs.ssd,
 	censor = True, 
-	censor_threshold = 2.0):
+	censor_threshold = 2.0,
+	show = True):
 
 	# Brute-force matching algorithm!
 
@@ -41,11 +44,21 @@ def block_matching(
 		yy_range = xrange(window, height-window)
 		xx_range = xrange(window+disparity, width-window-disparity)
 
+	if show:
+		figure, axis = pyplot.subplots()
+		pyplot.plot()
+		pyplot.hold(True)
+
 	for yy in yy_range:
-		
-		percent = numpy.floor(100*(float(1+yy)/height))
-		sys.stdout.write("\rProgress: %d%%" % percent)
+
+		percent_complete = numpy.floor(100*(float(1+yy)/height))
+		sys.stdout.write("\rProgress: %d%%" % percent_complete)
 		sys.stdout.flush()
+
+		if show:
+			image.show(disparity_map, block = False)
+			figure.canvas.draw()
+			axis.cla()
 
 		for xx in xx_range:
 
@@ -86,7 +99,7 @@ def block_matching(
 					cc_best = cc
 					disparity_map[yy][xx] = dd
 	
-	sys.stdout.write("\n")
+	sys.stdout.write("\r")
 
 	return disparity_map
 
@@ -149,7 +162,7 @@ if __name__ == "__main__":
 		L_disparity_map = block_matching(L_image, R_image)
 		pickle.dump(L_disparity_map, open(L_disparity_map_path, "wb"))
 
-	image.show(L_disparity_map, "Left Disparity Map")
+	image.show(L_disparity_map, title = "Left Disparity Map")
 
 	print("Compute disparity map with RIGHT image as reference")
 
@@ -159,11 +172,11 @@ if __name__ == "__main__":
 		R_disparity_map = block_matching(R_image, L_image)
 		pickle.dump(R_disparity_map, open(R_disparity_map_path, "wb"))
 
-	image.show(R_disparity_map, "Right Disparity Map")
+	image.show(R_disparity_map, title = "Right Disparity Map")
 
 	print("Remove any inconsistency between both images")
 	
 	depth_map = remove_inconsistency(L_disparity_map, R_disparity_map, empty_value = 8)
 	depth_map = 0-depth_map
 
-	image.show(depth_map, "Depth Map")
+	image.show(depth_map, title = "Depth Map")
