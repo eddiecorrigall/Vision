@@ -1,12 +1,21 @@
 import numpy
+
+from PIL import Image, ImageOps
+
 import matplotlib.pyplot as pyplot
 import matplotlib.image
 
 # A simple helper library for computer vision
 # Note: image coordinates are (y, x) in (height, width)
 
-def read(path):
-	return numpy.array(matplotlib.image.imread(path), dtype = numpy.float32)
+def read(path, scale = 1.0):
+
+	image = Image.open(path)
+
+	if scale != 1.0:
+		image = ImageOps.fit(image, [int(scale*x) for x in image.size], method = Image.ANTIALIAS, centering = (0.5, 0.5))
+
+	return numpy.array(image, dtype = numpy.float32)
 
 def write(path, image):
 
@@ -17,19 +26,19 @@ def write(path, image):
 	else:
 		matplotlib.image.imsave(path, image)
 
-def show(image, title = None, block = True):
+def show(image, title = None, **keywords):
 	
 	dimensions = len(image.shape)
 
 	if title is not None:
 		pyplot.title(title)
 
-	if (dimensions == 2):
-		pyplot.imshow(image, cmap = pyplot.get_cmap('gray'))
-	else:
-		pyplot.imshow(image)
+	#if (dimensions == 2):
+	#	pyplot.imshow(image, cmap = pyplot.get_cmap('gray'))
+	#else:
+	pyplot.imshow(image)
 
-	pyplot.show(block = block)
+	pyplot.show(**keywords) # ie. image.show(I, block = True)
 
 def normalize(image):
 
@@ -40,7 +49,7 @@ def normalize(image):
 	image -= image_min
 
 	if (image_range > 0):
-		image /= (image_max-image_min)
+		image /= image_range
 
 	return image
 
@@ -68,5 +77,5 @@ def neighbours(image, yy, xx, size, roll = False):
 		return image[:span, :span]
 
 	else:
-		
+
 		return numpy.transpose(image[range(yy-size, yy+size+1)])[range(xx-size, xx+size+1)]
