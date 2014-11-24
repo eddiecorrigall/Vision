@@ -5,8 +5,11 @@ sys.path.append("..")
 import numpy
 import matplotlib.pyplot as pyplot
 
+import arrays
 import image
 import costs
+
+MAX_WIDTH = 256
 
 # Baseline matching...
 # Horizonal scanline is assumed to be align in both left and right images
@@ -25,8 +28,11 @@ def block_matching(
 
 	# Brute-force matching algorithm!
 
-	L_image = numpy.array(255*image.greyscale(L_image), dtype = numpy.uint8)
-	R_image = numpy.array(255*image.greyscale(R_image), dtype = numpy.uint8)
+	#L_image = numpy.array(255*image.greyscale(L_image), dtype = numpy.uint8)
+	#R_image = numpy.array(255*image.greyscale(R_image), dtype = numpy.uint8)
+
+	L_image = arrays.as_bytes(L_image)
+	R_image = arrays.as_bytes(R_image)
 
 	# ...
 
@@ -151,15 +157,36 @@ if __name__ == "__main__":
 	L_disparity_map_path = L_path + ".map"
 	R_disparity_map_path = R_path + ".map"
 
-	L_image = image.greyscale(image.read(L_path))
-	R_image = image.greyscale(image.read(R_path))
+	L = image.read(L_path)
+	R = image.read(R_path)
+
+	L = image.as_greyscale(L)
+	R = image.as_greyscale(R)
+
+	# Crop excess height
+
+	height	= numpy.min([L.shape[0], R.shape[0]])
+	width	= numpy.min([L.shape[1], R.shape[1]])
+
+	L = L[:height, :width]
+	R = R[:height, :width]
+
+	# Scale by height
+
+	if (MAX_WIDTH < width):
+		aspect = float(MAX_WIDTH)/width
+		L = arrays.resample(L, [ int(aspect*x) for x in L.shape ])
+		R = arrays.resample(R, [ int(aspect*x) for x in R.shape ])
+
+	print("Left shape: " + str(L.shape))
+	print("Right shape: " + str(R.shape))
 
 	print("Compute disparity map with LEFT image as reference")
 	
 	if (os.path.exists(L_disparity_map_path)):
 		L_disparity_map = pickle.load(open(L_disparity_map_path, "rb"))
 	else:
-		L_disparity_map = block_matching(L_image, R_image)
+		L_disparity_map = block_matching(L, R)
 		pickle.dump(L_disparity_map, open(L_disparity_map_path, "wb"))
 
 	image.show(L_disparity_map, title = "Left Disparity Map")
@@ -169,7 +196,7 @@ if __name__ == "__main__":
 	if (os.path.exists(R_disparity_map_path)):
 		R_disparity_map = pickle.load(open(R_disparity_map_path, "rb"))
 	else:
-		R_disparity_map = block_matching(R_image, L_image)
+		R_disparity_map = block_matching(R, L)
 		pickle.dump(R_disparity_map, open(R_disparity_map_path, "wb"))
 
 	image.show(R_disparity_map, title = "Right Disparity Map")

@@ -1,81 +1,55 @@
+from arrays import *
+
 import numpy
-
-from PIL import Image, ImageOps
-
+import pylab
 import matplotlib.pyplot as pyplot
-import matplotlib.image
+
+GREYSCALE_FILTER_RED		= [1.0, 0.0, 0.0]
+GREYSCALE_FILTER_GREEN		= [0.0, 1.0, 0.0]
+GREYSCALE_FILTER_BLUE		= [0.0, 0.0, 1.0]
+
+GREYSCALE_FILTER_AVERAGE	= [0.5, 0.5, 0.5]
+GREYSCALE_FILTER_LUMINANCE	= [0.2126, 0.7152, 0.0722]
 
 # A simple helper library for computer vision
 # Note: image coordinates are (y, x) in (height, width)
 
-def read(path, scale = 1.0):
+def read(path, **keywords):
+	image = pylab.imread(path, **keywords)
+	image = as_bytes(image)
+	return image
 
-	image = Image.open(path)
-
-	if scale != 1.0:
-		image = ImageOps.fit(image, [int(scale*x) for x in image.size], method = Image.ANTIALIAS, centering = (0.5, 0.5))
-
-	return numpy.array(image, dtype = numpy.float32)
-
-def write(path, image):
-
-	dimensions = len(image.shape)
-
-	if (dimensions == 2):
-		matplotlib.image.imsave(path, image, cmap = pyplot.get_cmap('gray'))
-	else:
-		matplotlib.image.imsave(path, image)
+def write(path, image, **keywords):
+	pylab.imsave(path, image, **keywords)
 
 def show(image, title = None, **keywords):
-	
-	dimensions = len(image.shape)
 
 	if title is not None:
 		pyplot.title(title)
 
-	#if (dimensions == 2):
-	#	pyplot.imshow(image, cmap = pyplot.get_cmap('gray'))
-	#else:
+	# TODO: Is it faster to convert as_bytes, then draw?
+
 	pyplot.imshow(image)
+	pyplot.show(**keywords) # ie. show(image, block = True)
 
-	pyplot.show(**keywords) # ie. image.show(I, block = True)
+def is_greyscale(image):
+	return (len(image.shape) == 2)
 
-def normalize(image):
+def as_greyscale(image, rgb_filter = GREYSCALE_FILTER_LUMINANCE):
 
-	image_min = numpy.min(image)
-	image_max = numpy.max(image)
-	image_range = image_max - image_min
+	# Save image type
 
-	image -= image_min
+	image_type = image.dtype
 
-	if (image_range > 0):
-		image /= image_range
+	# Convert to greyscale
 
+	if (is_greyscale(image) == False):
+		image = normalize(image)
+		image = numpy.dot(image[..., range(3)], rgb_filter)
+
+	# Restore image type
+
+	if (is_bytes(image_type)):
+		image = as_bytes(image)
+	
 	return image
-
-def greyscale(image):
-
-	dimensions = len(image.shape)
-
-	if (dimensions != 2):
-		image = numpy.dot(image[..., range(3)], [0.299, 0.587, 0.144])
-
-	return normalize(image)
-
-def neighbours(image, yy, xx, size, roll = False):
-
-	if roll:
-
-		# Given an image
-		# Return an NxN array whose "center" element is arr[y,x]
-
-		image = numpy.roll(image, shift = 1-yy, axis = 0)
-		image = numpy.roll(image, shift = 1-xx, axis = 1)
-
-		span = 1 + 2*size
-
-		return image[:span, :span]
-
-	else:
-
-		return numpy.transpose(image[range(yy-size, yy+size+1)])[range(xx-size, xx+size+1)]

@@ -1,12 +1,12 @@
-import numpy
+from arrays import *
 
-EPSILON = numpy.finfo(float).eps
+import numpy
 
 # Matching cost functions
 # Assumming a and b are the same size
 # Returns a scalar representing the cost
 
-def ssd(a, b): # Sum of the the Square Difference
+def ssd(a, b): # Sum of the the Square Differences
 
 	# Range: non-negative
 	# 0.0 is maximal positive correlation
@@ -25,9 +25,6 @@ def sad(a, b): # Sum of the Absolute Differences
 		return numpy.nan
 
 	return numpy.sum(numpy.abs(b - a))
-
-def is_nearly_zero(x):
-	return (numpy.abs(x) <= EPSILON)
 
 def ncc(a, b): # Normalized Cross-Correlation
 
@@ -50,20 +47,16 @@ def ncc(a, b): # Normalized Cross-Correlation
 	a_centroid = a - numpy.mean(a)
 	b_centroid = b - numpy.mean(b)
 
-	#numerator = numpy.sum(a_centroid*b_centroid)
+	# numerator = numpy.sum(a_centroid*b_centroid)
 	numerator = numpy.dot(a_centroid, b_centroid)
 
 	if is_nearly_zero(numerator):
 		return 0
 
-	denominator = numpy.sqrt(numpy.sum(a_centroid**2)*numpy.sum(b_centroid**2))
+	# denominator = numpy.sqrt(numpy.sum(a_centroid**2)*numpy.sum(b_centroid**2))
+	denominator = numpy.sqrt(numpy.dot(a_centroid, a_centroid)*numpy.dot(b_centroid, b_centroid))
 
 	if is_nearly_zero(denominator):
 		return numpy.nan
 
 	return (numerator/denominator)
-
-# ...
-
-def rms(x):
-	return numpy.root(numpy.mean(x**2))
