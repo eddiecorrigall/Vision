@@ -11,14 +11,17 @@ import costs
 
 MAX_WIDTH = 256
 
+WINDOW = 3
+DISPARITY = 100
+
 # Baseline matching...
 # Horizonal scanline is assumed to be align in both left and right images
 
 def block_matching(
 	L_image,
 	R_image,
-	disparity = 8,
-	window = 3,
+	disparity = DISPARITY,
+	window = WINDOW,
 	roll = True,
 	cost_default = numpy.inf,
 	cost_function = costs.ssd,
@@ -27,10 +30,7 @@ def block_matching(
 	show = True):
 
 	# Brute-force matching algorithm!
-
-	#L_image = numpy.array(255*image.greyscale(L_image), dtype = numpy.uint8)
-	#R_image = numpy.array(255*image.greyscale(R_image), dtype = numpy.uint8)
-
+	
 	L_image = arrays.as_bytes(L_image)
 	R_image = arrays.as_bytes(R_image)
 
