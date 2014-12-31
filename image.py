@@ -1,7 +1,6 @@
 from arrays import *
 
 import numpy
-import pylab
 import matplotlib.pyplot as pyplot
 
 GREYSCALE_FILTER_RED		= [1.0, 0.0, 0.0]
@@ -15,12 +14,12 @@ GREYSCALE_FILTER_LUMINANCE	= [0.2126, 0.7152, 0.0722]
 # Note: image coordinates are (y, x) in (height, width)
 
 def read(path, **keywords):
-	image = pylab.imread(path, **keywords)
+	image = pyplot.imread(path, **keywords)
 	image = as_bytes(image)
 	return image
 
 def write(path, image, **keywords):
-	pylab.imsave(path, image, **keywords)
+	pyplot.imsave(path, image, **keywords)
 
 def show(image, title = None, **keywords):
 
