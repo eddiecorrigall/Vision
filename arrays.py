@@ -3,23 +3,23 @@ import scipy.ndimage as ndimage
 
 ##### ##### ##### ##### ##### 
 
-EPSILON = numpy.finfo(numpy.float16).eps # Use a low rez float to be safe
+EPSILON = numpy.finfo(numpy.float16).eps # Use a lo-rez float to be safe
 
-BYTES = numpy.uint8
-FLOATS = numpy.float16 # Note: Change to tune accuracy and performace
-
+FLOATS = numpy.float32 # Note: Change to tune accuracy and performace
 FLOATS_INFO	= numpy.finfo(FLOATS)
-BYTES_INFO	= numpy.iinfo(BYTES)
+
+BYTES = numpy.uint8 # Important: This must never change!
+BYTES_INFO = numpy.iinfo(BYTES)
 
 ##### ##### ##### ##### ##### 
 
 def is_nearly(x, y):
 	# Given x and y as numbers, or arrays.
 	# Check if all values of x are nearly equal to the corresponding y value
-	return numpy.all(numpy.abs(numpy.float128(y) - numpy.float128(x)) <= EPSILON)
+	return numpy.all(numpy.abs(y - x) <= EPSILON)
 
 def is_nearly_zero(x):
-	return is_nearly(x, 0)
+	return numpy.all(numpy.abs(x) <= EPSILON)
 
 ##### ##### ##### ##### ##### 
 
@@ -41,8 +41,10 @@ def is_similar_type(x, t):
 	#	is_similar_type(numpy.uint8(), numpy.uint8)		=> True
 	#	is_similar_type(numpy.uint16(), numpy.uint8)	=> False
 
-	if isinstance(x, type):
+	if isinstance(x, type) or isinstance(x, numpy.dtype):
 		return x == t
+	elif type(x) == numpy.ndarray:
+		return x.dtype == t
 	else:
 		return isinstance(x, t)
 
@@ -52,16 +54,37 @@ def is_bytes(x):
 	return is_similar_type(x, BYTES)
 
 def as_bytes(x):
-	
+
+	# Important:
+	# This function is not guaranteed to be reversable.
+	# The data might be scaled, or translated to reduce data loss.
+	# It is most useful for converting float-images to byte-images.
+
 	if is_bytes(x):
 		return x
 
-	# Reduce data loss...
-	x = normalize(x) # Scale to [0, 1)
-	x = x*BYTES_INFO.max # Scale to [0, max)
-
-	x = BYTES(x) # Shrink unit capacity to byte
+	x = normalize(x) # Scale to [0, 1]
 	
+	# Story time:
+	# When rectifying images,
+	# I found that the transformations were inconsistent between FLOATS types.
+	# I determined that the best rectification results were obtained with numpy.float16.
+	# While debugging I noticed small differences were propagated from within as_bytes.
+	# When FLOATS = numpy.float16, numpy.float32, ... small differences in pixel value occured between these types,
+	# Which propagated to a feature detector that I used to help determine the transformation.
+	# Some of these issues were resolved when I ironed out a few bugs, but the problem was obviously in as_bytes.
+	# My solution was to use numpy.around.
+	# I understand that when floating operations are done,
+	# Errors can accumulate in least-significant decimals and overflow into most-significant decimals.
+	# So numpy.around is used to trim off these anomalies at the 4th decimal.
+	# The 4th decimal was selected because of the the storage capacity of the unsigned char / uint8 / byte.
+	# We need at most 4 decimals for every byte value:
+	# 	1/256 ~= 0.0039 => 4 decimal precision
+
+	x = numpy.around(x, decimals = 4) # TODO: find out how to programmatically convert BYTES type to number of decimals
+	x = x*BYTES_INFO.max # Scale to [0, max]
+	x = numpy.array(x, dtype = BYTES)
+
 	return x
 
 ##### ##### ##### ##### ##### 
@@ -74,7 +97,10 @@ def as_floats(x):
 	if is_floats(x):
 		return x
 
-	x = FLOATS(x) # Capacity is assumed to be large enough...
+	# Capacity is assumed to be large enough
+	# If this is cast down from larger floating point types,
+	# Truncation will occur.
+	x = numpy.array(x, dtype = FLOATS)
 
 	return x
 
@@ -92,21 +118,89 @@ def is_equal(a, b):
 
 ##### ##### ##### ##### ##### 
 
-def normalize(array):
+def normalize(x):
 
-	array = as_floats(array)
+	x = numpy.array(x)
 
-	array_min = numpy.min(array)
-	array_max = numpy.max(array)
-	array_range = array_max - array_min
+	x_min = numpy.min(x)
+	x_max = numpy.max(x)
+	x_range = x_max - x_min
 
-	array -= array_min
+	x -= x_min
 
-	# Prevent division by zero
-	if is_nearly_zero(array_range) == False:
-		array /= array_range
+	# Prevent division by zero:
+	# Simply check if the value is greater
+	# Note: x_range guaranteed to be non-negative
+	if (x_range > 0):
+		# Reduce rounding error:
+		# Only mess with the numbers if they are in voilation of domain
+		if (x_range < 1):
+			return x
+		else:
+			x = as_floats(x)
+			x /= x_range
+	
+	return x
 
-	return array
+##### ##### ##### ##### ##### 
+
+def is_vector(x):
+
+	#return (len(x) == len(x.ravel()))
+	
+	dimension = len(x.shape)
+
+	if (dimension == 1): return True
+	if (dimension == 2):
+		if (x.shape[0] == 1) or (x.shape[1] == 1):
+			return True
+		return False
+	return False
+
+def as_vector(x):
+	return x.ravel()
+
+##### ##### ##### ##### ##### 
+
+def euclidean_to_homogeneous(x):
+
+	"""
+	See: OpenCV - convertPointsToHomogeneous
+	The function converts points from Euclidean to homogeneous space by appending 1's to the tuple of point coordinates.
+	That is, each point (x1, x2, ..., xn) is converted to (x1, x2, ..., xn, 1).
+	"""
+	
+	if is_vector(x):
+		return numpy.r_[x, 1]
+	else:
+		S = (1,) + x.shape[1:]
+		return numpy.r_[x, numpy.ones(S)]
+
+def homogeneous_to_euclidean(x):
+
+	"""
+	See: OpenCV - convertPointsFromHomogeneous
+	The function converts points homogeneous to Euclidean space using perspective projection.
+	That is, each point (x1, x2, ... x(n-1), xn) is converted to (x1/xn, x2/xn, ..., x(n-1)/xn).
+	When xn=0, the output point coordinates will be (0,0,0,...).
+	"""
+
+	# Faster method: avoid dividing everything
+
+	y = as_floats(x) # Make a copy of x and convert to FLOATS
+
+	if is_vector(y):
+		y[-1] = numpy.nan if (y[-1] == 0) else y[-1]
+		y[:-1] /= y[-1]
+		y[numpy.isnan(y)] = 0
+		y[-1] = 0 if (y[-1] == 0) else 1
+	else:
+		y[-1, y[-1] == 0] = numpy.nan	# Replace 0s in end row with nan to prevent division by zero
+		y[:-1] /= y[-1]					# Divide all rows excluding end row, by end row
+		y[numpy.isnan(y)] = 0			# Replace all nan with 0s
+		y[-1, y[-1] != 0] = 1			# Replace end row with 1s if the value is not zero
+
+	return y
 
 ##### ##### ##### ##### ##### 
 
@@ -164,3 +258,6 @@ def neighbours(array, yy, xx, size, roll): # 2D array
 	else:
 
 		return array[yy_start:yy_end, xx_start:xx_end]
+
+def zero_pad(x, padding):
+	return numpy.pad(x, pad_width = padding, mode = 'constant')
