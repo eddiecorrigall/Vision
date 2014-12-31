@@ -8,13 +8,41 @@ sys.path.append("..")
 import image
 import costs
 
-MAX_WIDTH = 512
+# TODO:
+# * Need to zero_pad image but also reduce the computation time
+# * Investigate why L / R order matters, and fix this!
+# * Boost the speed...
 
+# IMPORTANT
+# * All variables effect accuracy and error
+# * Image order can make a big difference in accuracy
+# * Window size effects precision and can introduce error, however a window size of 3 performs well with most images
+# * Disparity must be accurately estimated:
+# 		if to large, then resolution is decreased, and disparity is over estimated
+#		if to small, then resolution is increased, and disparity is under estimated
+
+'''
+MAX_WIDTH = 512
 WINDOW = 3
 DISPARITY = 16#32#64
 DISPARITY_SPAN = 2*DISPARITY+1
+'''
+
+#''' # GIRL Kdx1x2 (left right)
+MAX_WIDTH = numpy.inf
+WINDOW = 3
+DISPARITY = 100
+#'''
+
+''' # GIRL Kd (left right swapped)
+MAX_WIDTH = numpy.inf
+WINDOW = 2
+DISPARITY = 100
+'''
 
 ROLL = False
+
+DISPARITY_SPAN = 2*DISPARITY+1
 TAU = 0.6
 MU = 0.05
 
@@ -191,6 +219,14 @@ def preemptive_match(auxilary, L, R):
 
 def gcs_matching(L, R, Seeds = None, tau = TAU, mu = MU, show = True):
 
+	# NEW: Add padding...
+	
+	if (ROLL == False):
+		L = zero_pad(L, DISPARITY)
+		R = zero_pad(R, DISPARITY)
+
+	# ...
+
 	(height, width) = shape = L.shape
 
 	# ...
@@ -307,6 +343,8 @@ if __name__ == "__main__":
 		L = L[:height, :width]
 		R = R[:height, :width]
 
+		# TODO: Scale rectify_mask?
+
 		# Scale by height
 
 		if (MAX_WIDTH < width):
@@ -324,3 +362,6 @@ if __name__ == "__main__":
 
 	image.show(L_disparity_map, title = "Left Dispartiy Map")
 	image.show(R_disparity_map, title = "Right Dispartiy Map")
+
+	image.write("disparity_1.png", L_disparity_map)
+	image.write("disparity_2.png", R_disparity_map)
