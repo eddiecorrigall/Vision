@@ -21,6 +21,8 @@ from arrays import *
 # F		Fundamental matrix
 # H1	Homography matrix transform for image1
 # H2	Homography matrix transform for image2
+# R1	Rectification matrix transform for image1
+# R2	Rectification matrix transform for image2
 
 ##### ##### ##### ##### ##### 
 
@@ -124,68 +126,70 @@ def rectify_shearing(H1, H2, image_width, image_height):
 
 ##### ##### ##### ##### ##### 
 
-def rectify_images(img1, img2, x1, x2, K, d, F, shearing = True):
+def rectify_images(image1, image2, x1, x2, F, K, d, shearing = True):
 
-	# Rectification based on found fundamental matrix
+	# Rectification based on found Fundamental matrix
 
 	image_shape = image1.shape
 	(height, width) = image_shape
-	image_size = (width, height) # Note: image_size is not the same as image_shape
+	image_size = (width, height) # Note: image_size is not image_shape
 
-	# TODO: Implement code for retval
+	# Calculate Homogeneous matrix transform given features and fundamental matrix
+
 	retval, H1, H2 = cv2.stereoRectifyUncalibrated(x1.ravel(), x2.ravel(), F, image_size)
+
+	if (retval == False):
+		print("ERROR: stereoRectifyUncalibrated failed")
+		return None
 
 	# Apply a shearing transform to homography matrices
 	if shearing:
 		S = rectify_shearing(H1, H2, width, height)
 		H1 = S.dot(H1)
 	
-	# Find the rectify transform
+	# Compute the rectification transform
 	K_inverse = numpy.linalg.inv(K)
-	rH = K_inverse.dot(H1).dot(K)
-	lH = K_inverse.dot(H2).dot(K)
+	R1 = K_inverse.dot(H1).dot(K)
+	R2 = K_inverse.dot(H2).dot(K)
 
-	# TODO: Determine the correct order for lH, rH and img1, img2
-	map1x, map1y = cv2.initUndistortRectifyMap(K, d, rH, K, image_size, cv2.CV_16SC2)
-	map2x, map2y = cv2.initUndistortRectifyMap(K, d, lH, K, image_size, cv2.CV_16SC2)
+	mapx1, mapy1 = cv2.initUndistortRectifyMap(K, d, R2, K, image_size, cv2.CV_16SC2)
+	mapx2, mapy2 = cv2.initUndistortRectifyMap(K, d, R1, K, image_size, cv2.CV_16SC2)
 
-	# TODO: Rewrite below, we dont need an alpha channel
+	# Find an unused colour to build a border mask
+	# Note: Assuming that the union of both image intensity sets do not exhaust the 8 bit range
+	# Fortunately, if the set is empty, set.pop() will throw a runtime error
 
-	# Convert the images to RGBA (add an axis with 4 values)
-	img1 = numpy.tile(img1[:, :, numpy.newaxis], [1, 1, 4])
-	img1[:, :, 3] = 255
+	palette1 = set(image1.flatten())
+	palette2 = set(image2.flatten())
 
-	img2 = numpy.tile(img2[:, :, numpy.newaxis], [1, 1, 4])
-	img2[:, :, 3] = 255
+	colours = set(range(256))
 
-	# cv2.INTER_LINEAR, cv2.INTER_CUBIC
-	rimg1 = cv2.remap(img1, map1x, map1y,
-		interpolation = cv2.INTER_CUBIC,
-		borderMode = cv2.BORDER_CONSTANT,
-		borderValue = (0, 0, 0, 0))
+	key1 = colours.difference(palette1).pop()
+	key2 = colours.difference(palette2).pop()
+
+	##### ##### ##### ##### ##### 
+	##### Apply Rectification Transform
+	##### ##### ##### ##### ##### 
+
+	rectified1 = cv2.remap(image1, mapx1, mapy1,
+		interpolation	= cv2.INTER_LINEAR, # cv2.INTER_CUBIC, # cv2.INTER_LINEAR
+		borderMode		= cv2.BORDER_CONSTANT,
+		borderValue		= key1)
 	
-	rimg2 = cv2.remap(img2, map2x, map2y,
-		interpolation = cv2.INTER_CUBIC,
-		borderMode = cv2.BORDER_CONSTANT,
-		borderValue = (0, 0, 0, 0))
-	
-	# Set the background to be red
-	# TODO: Remove aliasing around borders
+	rectified2 = cv2.remap(image2, mapx2, mapy2,
+		interpolation	= cv2.INTER_LINEAR,
+		borderMode		= cv2.BORDER_CONSTANT,
+		borderValue		= key2)
 
-	color = (255, 0, 0, 255)
-	k = len(color)
+	# Build the mask
 
-	# Eddie...
-	rmask = numpy.ones(image_shape + (k-1,), dtype = numpy.bool)
-	rmask[rimg1[:, :, k-1] == 0,:] = False
-	rmask[rimg2[:, :, k-1] == 0,:] = False
+	mask = numpy.ones(image_shape, dtype = bool)
+	mask[rectified1 == key1] = False
+	mask[rectified2 == key2] = False
 
-	rimg1[rimg1[:, :, k-1] == 0,:] = color
-	rimg2[rimg2[:, :, k-1] == 0,:] = color
+	return rectified1, rectified2, mask
 
-	return rimg1, rimg2, rmask
-
-def rectify_with_sift(image1, image2, K, d = None):
+def rectify_with_sift(image1, image2, K = numpy.eye(3), d = None):
 
 	##### ##### ##### ##### ##### 
 	##### CREDIT
@@ -200,7 +204,7 @@ def rectify_with_sift(image1, image2, K, d = None):
 	# Let d be the OpenCV Distortion coefficients
 
 	if (image1.shape != image2.shape):
-		print("Image 1 & 2 must have the same shape!")
+		print("ERROR: Image 1 & 2 must have the same shape!")
 		return None
 
 	shape = image1.shape
@@ -264,7 +268,7 @@ def rectify_with_sift(image1, image2, K, d = None):
 	F, mask = cv2.findFundamentalMat(x1, x2)
 	
 	# Select only inlier points
-	mask = mask.ravel()
+	mask = mask.flatten()
 	x1 = x1[mask == 1]
 	x2 = x2[mask == 1]
 
@@ -273,9 +277,10 @@ def rectify_with_sift(image1, image2, K, d = None):
 	##### ##### ##### ##### ##### 
 
 	# TOOD,
-	# determine which image is left and which is right... using keypoints/descriptors?
+	# Determine which image is left and which is right...
+	# Using keypoints/descriptors?
 
-	return rectify_images(image1, image2, x1, x2, K, d, F)
+	return rectify_images(image1, image2, x1, x2, F, K, d)
 
 if (__name__ == "__main__"):
 
@@ -286,7 +291,7 @@ if (__name__ == "__main__"):
 	##### EXAMPLE
 	##### ##### ##### ##### ##### 
 
-	example = "Examples/girl/" # So far the only example
+	example = "Examples/girl/" # So far the only COMPLETE example
 	
 	if 1 < len(sys.argv):
 		example = sys.argv[1]
@@ -302,7 +307,7 @@ if (__name__ == "__main__"):
 
 	# Load camera matrix
 
-	cameraMatrix = numpy.float64(numpy.eye(3))
+	cameraMatrix = numpy.eye(3)
 
 	cameraMatrix_path = os.path.join(example, "K.npy")
 	if os.path.isfile(cameraMatrix_path):
@@ -318,13 +323,14 @@ if (__name__ == "__main__"):
 
 	# Rectify images
 
-	rectified1, rectified2, mask = rectify_with_sift(image1, image2, K = cameraMatrix, d = distortionParameters)
+	rectified1, rectified2, mask = rectify_with_sift(image1, image2,
+		K = cameraMatrix,
+		d = distortionParameters)
 
 	# Save data
 
-	numpy.save("mask.npy", mask) # Used for cropping final image
+	numpy.save("mask.npy", mask) # Used to crop final image
 
-	# TODO: Remove alpha channel
 	imwrite_parameters = (cv2.IMWRITE_PNG_COMPRESSION, 9)
 	cv2.imwrite("rectified1.png", rectified1, imwrite_parameters)
 	cv2.imwrite("rectified2.png", rectified2, imwrite_parameters)
