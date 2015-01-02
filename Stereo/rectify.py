@@ -132,11 +132,6 @@ def rectify_images(img1, img2, x1, x2, K, d, F, shearing = True):
 	(height, width) = image_shape
 	image_size = (width, height) # Note: image_size is not the same as image_shape
 
-	# TODO: Apply a filter on both images to improve feature detection/matching
-	# See: http://stackoverflow.com/questions/19361448/how-to-improve-features-detection-in-opencv
-	# * Equalize Histogram filter (absolutely)
-	# * Fast Fourier Transform filter (maybe)
-
 	# TODO: Implement code for retval
 	retval, H1, H2 = cv2.stereoRectifyUncalibrated(x1.ravel(), x2.ravel(), F, image_size)
 
@@ -221,11 +216,24 @@ def rectify_with_sift(image1, image2, K, d = None):
 	##### Compute Matching
 	##### ##### ##### ##### ##### 
 
+	# Apply a filter to both images to improve feature detection/matching
+	# Reference: http://stackoverflow.com/questions/19361448/how-to-improve-features-detection-in-opencv
+	# * Equalize Histogram filter (absolutely)
+	# * Fast Fourier Transform filter (maybe)
+
+	# Apply Equalize Histogram filter
+	# Note:
+	# There is an improvement in matching, but also less information...
+	# It is hard to conclude this improves GCS
+
+	filtered1 = cv2.equalizeHist(image1)
+	filtered2 = cv2.equalizeHist(image2)
+
 	# Find keypoints and descriptors with SIFT
 
 	sift = cv2.SIFT()
-	keypoints1, descriptors1 = sift.detectAndCompute(image1, mask = None)
-	keypoints2, descriptors2 = sift.detectAndCompute(image2, mask = None)
+	keypoints1, descriptors1 = sift.detectAndCompute(filtered1, mask = None)
+	keypoints2, descriptors2 = sift.detectAndCompute(filtered2, mask = None)
 
 	# Match features using FLANN based matching
 
@@ -285,22 +293,40 @@ if (__name__ == '__main__'):
 	if 1 < len(sys.argv):
 		example = sys.argv[1]
 
-	image1 = cv2.imread(os.path.join(example, "image1.png"), cv2.CV_LOAD_IMAGE_GRAYSCALE)
-	image2 = cv2.imread(os.path.join(example, "image2.png"), cv2.CV_LOAD_IMAGE_GRAYSCALE)
+	for filename in os.listdir(example):
+		if filename.startswith("image1"):
+			image1_path = filename
+		if filename.startswith("image2"):
+			image2_path = filename
 
-	cameraMatrix = numpy.load(os.path.join(example + "K.npy"))
-	distortionParameters = numpy.load(os.path.join(example + "d.npy"))
+	image1 = cv2.imread(os.path.join(example, image1_path), cv2.CV_LOAD_IMAGE_GRAYSCALE)
+	image2 = cv2.imread(os.path.join(example, image2_path), cv2.CV_LOAD_IMAGE_GRAYSCALE)
 
-	#cameraMatrix = numpy.float64([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-	#distortionParameters = None
+	# Load camera matrix
+
+	cameraMatrix = numpy.float64([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+
+	cameraMatrix_path = os.path.join(example, "K.npy")
+	if os.path.isfile(cameraMatrix_path):
+		cameraMatrix = numpy.load(cameraMatrix_path)
+
+	# Load distortion parameters
+
+	distortionParameters = None	
+
+	distortionParameters_path = os.path.join(example, "d.npy")
+	if os.path.isfile(distortionParameters_path):
+		distortionParameters = numpy.load(distortionParameters_path)
+
+	# Rectify images
 
 	rectified1, rectified2, mask = rectify_with_sift(image1, image2, K = cameraMatrix, d = distortionParameters)
 
 	# Save data
 
-	numpy.save("rectify_mask.npy", mask) # Used for cropping final image
-	image.write("rectify_1.png", rectified1)
-	image.write("rectify_2.png", rectified2)
+	numpy.save("rectified_mask.npy", mask) # Used for cropping final image
+	image.write("rectified1.png", rectified1)
+	image.write("rectified2.png", rectified2)
 	
 	# Display data
 	
