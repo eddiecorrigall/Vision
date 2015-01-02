@@ -288,7 +288,7 @@ if (__name__ == '__main__'):
 	import os
 	import matplotlib.pyplot as pyplot
 
-	example = "Examples/unrectified/girl/" # So far the only example
+	example = "Examples/girl/" # So far the only example
 	
 	if 1 < len(sys.argv):
 		example = sys.argv[1]
