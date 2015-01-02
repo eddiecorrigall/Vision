@@ -277,16 +277,14 @@ def rectify_with_sift(image1, image2, K, d = None):
 
 	return rectify_images(image1, image2, x1, x2, K, d, F)
 
-if (__name__ == '__main__'):
+if (__name__ == "__main__"):
+
+	import os
+	import matplotlib.pyplot as pyplot
 
 	##### ##### ##### ##### ##### 
 	##### EXAMPLE
 	##### ##### ##### ##### ##### 
-
-	import image
-
-	import os
-	import matplotlib.pyplot as pyplot
 
 	example = "Examples/girl/" # So far the only example
 	
@@ -304,7 +302,7 @@ if (__name__ == '__main__'):
 
 	# Load camera matrix
 
-	cameraMatrix = numpy.float64([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+	cameraMatrix = numpy.float64(numpy.eye(3))
 
 	cameraMatrix_path = os.path.join(example, "K.npy")
 	if os.path.isfile(cameraMatrix_path):
@@ -312,7 +310,7 @@ if (__name__ == '__main__'):
 
 	# Load distortion parameters
 
-	distortionParameters = None	
+	distortionParameters = None
 
 	distortionParameters_path = os.path.join(example, "d.npy")
 	if os.path.isfile(distortionParameters_path):
@@ -324,10 +322,13 @@ if (__name__ == '__main__'):
 
 	# Save data
 
-	numpy.save("rectified_mask.npy", mask) # Used for cropping final image
-	image.write("rectified1.png", rectified1)
-	image.write("rectified2.png", rectified2)
-	
+	numpy.save("mask.npy", mask) # Used for cropping final image
+
+	# TODO: Remove alpha channel
+	imwrite_parameters = (cv2.IMWRITE_PNG_COMPRESSION, 9)
+	cv2.imwrite("rectified1.png", rectified1, imwrite_parameters)
+	cv2.imwrite("rectified2.png", rectified2, imwrite_parameters)
+
 	# Display data
 	
 	combined = normalize(numpy.float32(rectified1) + numpy.float32(rectified2))
