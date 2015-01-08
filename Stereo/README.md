@@ -1,6 +1,7 @@
 # Stereo Vision
 
 __Features__
+* Growing Correspondence Seeds
 * Uncalibrated/calibrated stereo rectication
 * Horizontal Baseline Block Matching
 	* Censoring (filter areas of low texture)
@@ -10,6 +11,5 @@ __Features__
 ## Examples
 
 * python rectify.py Examples/girl
-* python matching.py Examples/star/image1.jpg Exmaples/star/image2.jpg
-
-__Note:__ In the depth map, lighter shades are closer, darker shades are farther, black can mean no information.
+* python matching.py Examples/star/rectified1.jpg Exmaples/star/rectified2.jpg
+* python gcs.py Examples/martin/rectified1.png Examples/martin/rectified2.png 64 3
