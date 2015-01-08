@@ -226,6 +226,11 @@ def resample(array, new_shape):
 
 ##### ##### ##### ##### ##### 
 
+def span(x):
+	return 2*x+1
+
+##### ##### ##### ##### ##### 
+
 def neighbours(array, yy, xx, size, roll): # 2D array
 
 	# Given an image
@@ -251,13 +256,18 @@ def neighbours(array, yy, xx, size, roll): # 2D array
 		array = numpy.roll(array, shift = 1-yy, axis = 0)
 		array = numpy.roll(array, shift = 1-xx, axis = 1)
 
-		span = 2*size+1
+		N = span(size)
 
-		return array[:span, :span]
+		return array[:N, :N]
 
 	else:
 
 		return array[yy_start:yy_end, xx_start:xx_end]
 
-def zero_pad(x, padding):
-	return numpy.pad(x, pad_width = padding, mode = 'constant')
+def zero_pad(x, padding, axis = None):
+	y = numpy.pad(x, pad_width = padding, mode = 'constant')
+	if axis == 0:
+		return y[padding:(0-padding), :]
+	elif axis == 1:
+		return y[:, padding:(0-padding)]
+	return y
