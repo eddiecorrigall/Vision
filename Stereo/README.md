@@ -11,5 +11,5 @@ __Features__
 ## Examples
 
 * python rectify.py Examples/girl
-* python matching.py Examples/star/rectified1.jpg Exmaples/star/rectified2.jpg
+* python matching.py Examples/star/rectified1.jpg Examples/star/rectified2.jpg
 * python gcs.py Examples/martin/rectified1.png Examples/martin/rectified2.png 64 3
