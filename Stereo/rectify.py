@@ -1,6 +1,4 @@
-"""
-Python rectification implementation
-"""
+''' Python stereo rectification implementation '''
 
 import cv2
 import numpy
@@ -23,6 +21,8 @@ from arrays import *
 # H2	Homography matrix transform for image2
 # R1	Rectification matrix transform for image1
 # R2	Rectification matrix transform for image2
+# mask1	Rectified data region mask for image1
+# mask2	Rectified data region mask for image2
 
 ##### ##### ##### ##### ##### 
 
@@ -73,10 +73,10 @@ def rectify_shearing(H1, H2, image_width, image_height):
 	Consider the four midpoints of the image edges:
 	'''
 
-	a = numpy.array([ (w-1)/2.0,	0,			1 ], dtype = float)
-	b = numpy.array([ (w-1),		(h-1)/2.0,	1 ], dtype = float)
-	c = numpy.array([ (w-1)/2.0,	(h-1),		1 ], dtype = float)
-	d = numpy.array([ 0,			(h-1)/2.0,	1 ], dtype = float)
+	a = numpy.float32([ (w-1)/2.0,	0,			1 ])
+	b = numpy.float32([ (w-1),		(h-1)/2.0,	1 ])
+	c = numpy.float32([ (w-1)/2.0,	(h-1),		1 ])
+	d = numpy.float32([ 0,			(h-1)/2.0,	1 ])
 
 	'''
 	According to Loop & Zhang:
@@ -119,14 +119,25 @@ def rectify_shearing(H1, H2, image_width, image_height):
 		k1 *= -1
 		k2 *= -1
 
-	return numpy.array([
+	return numpy.float32([
 		[k1,	k2,	0],
 		[0,		1,	0],
-		[0,		0,	1]], dtype = float)
+		[0,		0,	1]])
 
 ##### ##### ##### ##### ##### 
 
-def rectify_images(image1, image2, x1, x2, F, K, d, shearing = True):
+def rectify_images(image1, image2, K, d, x1, x2, shearing = True):
+
+	##### ##### ##### ##### ##### 
+	##### Compute Fundamental matrix
+	##### ##### ##### ##### ##### 
+
+	F, F_mask = cv2.findFundamentalMat(x1, x2)
+	
+	# Select only inlier points
+	F_mask = F_mask.flatten()
+	x1 = x1[F_mask == 1]
+	x2 = x2[F_mask == 1]
 
 	# Rectification based on found Fundamental matrix
 
@@ -152,8 +163,8 @@ def rectify_images(image1, image2, x1, x2, F, K, d, shearing = True):
 	R1 = K_inverse.dot(H1).dot(K)
 	R2 = K_inverse.dot(H2).dot(K)
 
-	mapx1, mapy1 = cv2.initUndistortRectifyMap(K, d, R2, K, image_size, cv2.CV_16SC2)
-	mapx2, mapy2 = cv2.initUndistortRectifyMap(K, d, R1, K, image_size, cv2.CV_16SC2)
+	mapx1, mapy1 = cv2.initUndistortRectifyMap(K, d, R1, K, image_size, cv2.CV_16SC2)
+	mapx2, mapy2 = cv2.initUndistortRectifyMap(K, d, R2, K, image_size, cv2.CV_16SC2)
 
 	# Find an unused colour to build a border mask
 	# Note: Assuming that the union of both image intensity sets do not exhaust the 8 bit range
@@ -171,23 +182,36 @@ def rectify_images(image1, image2, x1, x2, F, K, d, shearing = True):
 	##### Apply Rectification Transform
 	##### ##### ##### ##### ##### 
 
+	# TODO: Determine which interpolation method is best
+	INTERPOLATION = cv2.INTER_CUBIC # cv2.INTER_LINEAR
+
 	rectified1 = cv2.remap(image1, mapx1, mapy1,
-		interpolation	= cv2.INTER_LINEAR, # cv2.INTER_CUBIC, # cv2.INTER_LINEAR
+		interpolation	= INTERPOLATION, 
 		borderMode		= cv2.BORDER_CONSTANT,
 		borderValue		= key1)
 	
 	rectified2 = cv2.remap(image2, mapx2, mapy2,
-		interpolation	= cv2.INTER_LINEAR,
+		interpolation	= INTERPOLATION,
 		borderMode		= cv2.BORDER_CONSTANT,
 		borderValue		= key2)
 
-	# Build the mask
+	# Build the mask, used for cropping out noise
 
-	mask = numpy.ones(image_shape, dtype = bool)
-	mask[rectified1 == key1] = False
-	mask[rectified2 == key2] = False
+	rectified1_mask = numpy.ndarray(image_shape, dtype = bool)
+	rectified2_mask = numpy.ndarray(image_shape, dtype = bool)
 
-	return rectified1, rectified2, mask
+	rectified1_mask.fill(True)
+	rectified2_mask.fill(True)
+
+	rectified1_mask[rectified1 == key1] = False
+	rectified2_mask[rectified2 == key2] = False
+
+	numpy.save("mask1.npy", rectified1_mask)
+	numpy.save("mask2.npy", rectified2_mask)
+
+	# All done!
+
+	return rectified1, rectified2, rectified1_mask, rectified2_mask
 
 def rectify_with_sift(image1, image2, K = numpy.eye(3), d = None):
 
@@ -261,16 +285,8 @@ def rectify_with_sift(image1, image2, K = numpy.eye(3), d = None):
 	x1 = numpy.float64(x1)
 	x2 = numpy.float64(x2)
 
-	##### ##### ##### ##### ##### 
-	##### Compute Fundamental matrix
-	##### ##### ##### ##### ##### 
-
-	F, mask = cv2.findFundamentalMat(x1, x2)
-	
-	# Select only inlier points
-	mask = mask.flatten()
-	x1 = x1[mask == 1]
-	x2 = x2[mask == 1]
+	numpy.save("x1.npy", x1)
+	numpy.save("x2.npy", x2)
 
 	##### ##### ##### ##### ##### 
 	##### Rectify Images
@@ -280,7 +296,7 @@ def rectify_with_sift(image1, image2, K = numpy.eye(3), d = None):
 	# Determine which image is left and which is right...
 	# Using keypoints/descriptors?
 
-	return rectify_images(image1, image2, x1, x2, F, K, d)
+	return rectify_images(image1, image2, K, d, x1, x2)
 
 if (__name__ == "__main__"):
 
@@ -296,11 +312,23 @@ if (__name__ == "__main__"):
 	if 1 < len(sys.argv):
 		example = sys.argv[1]
 
+	# Load raw unrectified images
+
+	image1_path = None
+	image2_path = None
+
 	for filename in os.listdir(example):
+
+		if (image1_path is not None and image2_path is not None):
+			break
+		
 		if filename.startswith("image1"):
 			image1_path = filename
+			continue
+		
 		if filename.startswith("image2"):
 			image2_path = filename
+			continue
 
 	image1 = cv2.imread(os.path.join(example, image1_path), cv2.CV_LOAD_IMAGE_GRAYSCALE)
 	image2 = cv2.imread(os.path.join(example, image2_path), cv2.CV_LOAD_IMAGE_GRAYSCALE)
@@ -321,15 +349,33 @@ if (__name__ == "__main__"):
 	if os.path.isfile(distortionParameters_path):
 		distortionParameters = numpy.load(distortionParameters_path)
 
+	# Load feature points
+
+	featurePoints1 = None
+	featurePoints2 = None
+
+	featurePoints1_path = os.path.join(example, "x1.npy")
+	if os.path.isfile(featurePoints1_path):
+		featurePoints1 = numpy.load(featurePoints1_path)
+
+	featurePoints2_path = os.path.join(example, "x2.npy")
+	if os.path.isfile(featurePoints2_path):
+		featurePoints2 = numpy.load(featurePoints2_path)
+
 	# Rectify images
 
-	rectified1, rectified2, mask = rectify_with_sift(image1, image2,
-		K = cameraMatrix,
-		d = distortionParameters)
+	if (featurePoints1 is not None) and (featurePoints2 is not None):
+		rectified1, rectified2, mask1, mask2 = rectify_images(image1, image2,
+			K = cameraMatrix,
+			d = distortionParameters,
+			x1 = featurePoints1,
+			x2 = featurePoints2)
+	else:
+		rectified1, rectified2, mask1, mask2 = rectify_with_sift(image1, image2,
+			K = cameraMatrix,
+			d = distortionParameters)
 
 	# Save data
-
-	numpy.save("mask.npy", mask) # Used to crop final image
 
 	imwrite_parameters = (cv2.IMWRITE_PNG_COMPRESSION, 9)
 	cv2.imwrite("rectified1.png", rectified1, imwrite_parameters)
@@ -340,5 +386,6 @@ if (__name__ == "__main__"):
 	combined = normalize(numpy.float32(rectified1) + numpy.float32(rectified2))
 
 	pyplot.figure()
-	pyplot.imshow(combined)
+	pyplot.title("Combined Rectified Images")
+	pyplot.imshow(combined, cmap = "gray")
 	pyplot.show()
