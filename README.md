@@ -5,6 +5,9 @@ __Features__
 * Growing Correspondence Seeds (GCS) for baseline stereo images (see Stereo/gcs.py)
 * Block matching for baseline stero images (see Stereo/matching.py)
 
+__IPythonNotebook__
+* [EigenFaces](IPythonNotebook/eigenfaces.ipynb)
+
 __TODO__
 * Write a script to determine camera matrix and distortation parameters using OpenCV
 * Move AutoKMeans here
